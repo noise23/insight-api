@@ -25,7 +25,7 @@ if (process.env.INSIGHT_NETWORK === 'livenet') {
   env = 'livenet';
   db = home;
   port = '3000';
-  b_port = '36352';
+  b_port = '36353';
   p2p_port = '36353';
 } else {
   env = 'testnet';
@@ -68,8 +68,8 @@ var ignoreCache = process.env.INSIGHT_IGNORE_CACHE || 0;
 
 var bitcoindConf = {
   protocol: process.env.BITCOIND_PROTO || 'http',
-  user: process.env.BITCOIND_USER || 'user',
-  pass: process.env.BITCOIND_PASS || 'pass',
+  user: process.env.BITCOIND_USER || 'ClickCoinrpc',
+  pass: process.env.BITCOIND_PASS || 'xxx',
   host: process.env.BITCOIND_HOST || '127.0.0.1',
   port: process.env.BITCOIND_PORT || b_port,
   p2pPort: process.env.BITCOIND_P2P_PORT || p2p_port,
@@ -122,7 +122,7 @@ module.exports = {
   leveldb: db,
   bitcoind: bitcoindConf,
   network: network,
-  disableP2pSync: false,
+  disableP2pSync: true,
   disableHistoricSync: false,
   poolMatchFile: rootPath + '/etc/minersPoolStrings.json',
 
