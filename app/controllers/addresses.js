@@ -4,9 +4,12 @@
  * Module dependencies.
  */
 
-var Address = require('../models/Address'),
-  common = require('./common'),
-  async = require('async');
+var _ = require('lodash');
+var Address = require('../models/Address');
+var common = require('./common');
+var async = require('async');
+
+var tDb = require('../../lib/TransactionDb').default();
 
 var getAddr = function(req, res, next) {
   var a;
@@ -89,6 +92,70 @@ exports.multiutxo = function(req, res, next) {
   }
 };
 
+exports.multitxs = function(req, res, next) {
+
+  function processTxs(txs, from, to, cb) {
+    txs = _.uniq(_.flatten(txs), 'txid');
+    var nbTxs = txs.length;
+    var paginated = !_.isUndefined(from) || !_.isUndefined(to);
+
+    if (paginated) {
+      txs.sort(function(a, b) {
+        return (b.ts || b.ts) - (a.ts || a.ts);
+      });
+      var start = Math.max(from || 0, 0);
+      var end = Math.min(to || txs.length, txs.length);
+      txs = txs.slice(start, end);
+    }
+
+    var txIndex = {};
+    _.each(txs, function (tx) { txIndex[tx.txid] = tx; });
+
+    async.each(txs, function (tx, callback) {
+      tDb.fromIdWithInfo(tx.txid, function(err, tx) {
+        if (err) console.log(err);
+        if (tx && tx.info) {
+          txIndex[tx.txid].info = tx.info;
+        }
+        callback();
+      });
+    }, function (err) {
+      if (err) return cb(err);
+      
+      var transactions = _.pluck(txs, 'info');
+      if (paginated) {
+        transactions = {
+          totalItems: nbTxs,
+          from: +from,
+          to: +to,
+          items: transactions,
+        };
+      }
+      return cb(null, transactions);
+    });
+  };
+
+  var from = req.param('from');
+  var to = req.param('to');
+
+  var as = getAddrs(req, res, next);
+  if (as) {
+    var txs = [];
+    async.eachLimit(as, 10, function(a, callback) {
+      a.update(function(err) {
+        if (err) callback(err);
+        txs.push(a.transactions);
+        callback();
+      }, {ignoreCache: req.param('noCache'), includeTxInfo: true});
+    }, function(err) { // finished callback
+      if (err) return common.handleErrors(err, res);
+      processTxs(txs, from, to, function (err, transactions) {
+        if (err) return common.handleErrors(err, res);
+        res.jsonp(transactions);
+      });
+    });
+  }
+};
 
 exports.balance = function(req, res, next) {
   var a = getAddr(req, res, next);

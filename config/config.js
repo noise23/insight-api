@@ -1,15 +1,17 @@
 'use strict';
 
-var path = require('path'),
-  fs = require('fs'),
-  rootPath = path.normalize(__dirname + '/..'),
+var path = require('path');
+var fs = require('fs');
+var mkdirp = require('mkdirp');
+
+var rootPath = path.normalize(__dirname + '/..'),
   env,
   db,
   port,
   b_port,
   p2p_port;
 
-var packageStr = fs.readFileSync('package.json');
+var packageStr = fs.readFileSync(rootPath + '/package.json');
 var version = JSON.parse(packageStr).version;
 
 
@@ -23,8 +25,8 @@ if (process.env.INSIGHT_NETWORK === 'livenet') {
   env = 'livenet';
   db = home;
   port = '3000';
-  b_port = '36353';
-  p2p_port = '36352';
+  b_port = '36352';
+  p2p_port = '36353';
 } else {
   env = 'testnet';
   db = home + '/testnet';
@@ -32,6 +34,7 @@ if (process.env.INSIGHT_NETWORK === 'livenet') {
   b_port = '18332';
   p2p_port = '18333';
 }
+port = parseInt(process.env.INSIGHT_PORT) || port;
 
 
 switch (process.env.NODE_ENV) {
@@ -55,7 +58,7 @@ var isLinux = /^linux/.test(process.platform);
 if (!dataDir) {
   if (isWin) dataDir = '%APPDATA%\\Bitcoin\\';
   if (isMac) dataDir = process.env.HOME + '/Library/Application Support/Bitcoin/';
-  if (isLinux) dataDir = process.env.HOME + '/.ClickCoin/';
+  if (isLinux) dataDir = process.env.HOME + '/.bitcoin/';
 }
 dataDir += network === 'testnet' ? 'testnet3' : '';
 
@@ -65,8 +68,8 @@ var ignoreCache = process.env.INSIGHT_IGNORE_CACHE || 0;
 
 var bitcoindConf = {
   protocol: process.env.BITCOIND_PROTO || 'http',
-  user: process.env.BITCOIND_USER || 'ClickCoinrpc',
-  pass: process.env.BITCOIND_PASS || 'xxx',
+  user: process.env.BITCOIND_USER || 'user',
+  pass: process.env.BITCOIND_PASS || 'pass',
   host: process.env.BITCOIND_HOST || '127.0.0.1',
   port: process.env.BITCOIND_PORT || b_port,
   p2pPort: process.env.BITCOIND_P2P_PORT || p2p_port,
@@ -76,24 +79,38 @@ var bitcoindConf = {
   disableAgent: true
 };
 
+var enableMonitor = process.env.ENABLE_MONITOR === 'true';
+var enableCleaner = process.env.ENABLE_CLEANER === 'true';
 var enableMailbox = process.env.ENABLE_MAILBOX === 'false';
 var enableRatelimiter = process.env.ENABLE_RATELIMITER === 'true';
+var enableCredentialstore = process.env.ENABLE_CREDSTORE === 'true';
+var enableEmailstore = process.env.ENABLE_EMAILSTORE === 'false';
+var enablePublicInfo = process.env.ENABLE_PUBLICINFO === 'true';
 var loggerLevel = process.env.LOGGER_LEVEL || 'info';
-var enableHTTPS = process.env.ENABLE_HTTPS === 'false'; 
+var enableHTTPS = process.env.ENABLE_HTTPS === 'true';
+var enableCurrencyRates = process.env.ENABLE_CURRENCYRATES === 'true';
 
 if (!fs.existsSync(db)) {
-  var err = fs.mkdirSync(db);
-  if (err) {
-    console.log(err);
-    console.log("## ERROR! Can't create insight directory! \n");
-    console.log('\tPlease create it manually: ', db);
-    process.exit(-1);
-  }
+  mkdirp.sync(db);
 }
 
 module.exports = {
+  enableMonitor: enableMonitor,
+  monitor: require('../plugins/config-monitor.js'),
+  enableCleaner: enableCleaner,
+  cleaner: require('../plugins/config-cleaner.js'),
   enableMailbox: enableMailbox,
+  mailbox: require('../plugins/config-mailbox.js'),
   enableRatelimiter: enableRatelimiter,
+  ratelimiter: require('../plugins/config-ratelimiter.js'),
+  enableCredentialstore: enableCredentialstore,
+  credentialstore: require('../plugins/config-credentialstore'),
+  enableEmailstore: enableEmailstore,
+  emailstore: require('../plugins/config-emailstore'),
+  enableCurrencyRates: enableCurrencyRates,
+  currencyrates: require('../plugins/config-currencyrates'),
+  enablePublicInfo: enablePublicInfo,
+  publicInfo: require('../plugins/publicInfo/config'),
   loggerLevel: loggerLevel,
   enableHTTPS: enableHTTPS,
   version: version,
